@@ -33,7 +33,9 @@ and produces test functions with 'deftest' and then calls them."
                         (form-expected (third test-list))
                         (test-fn (fourth test-list))
                         (test-full-name (intern (concatenate 'string (write-to-string lab-test-name) "-TASK-" (write-to-string test-name)))))
-                   ;; 'setf' is not functional, but i didn't want to mess with multiple-value-bind
+                   ;; while generating 'deftests' i also collect a form in which test function should be called to
+                   ;; 'test-func-calls'.
+                   ;; i know that 'setf' is not functional, but i didn't want to mess with multiple-value-bind
                    (setf test-func-calls (cons `(format t " ~A ~A~%"
                                                         (handler-case (,test-full-name)
                                                           (error (se) (declare (ignore se)) (setf failed-test-func-names
@@ -43,19 +45,20 @@ and produces test functions with 'deftest' and then calls them."
                                                test-func-calls)) 
                    (cons `(deftest ,test-full-name ,form-tested ,form-expected ,(if test-fn test-fn '(function equalp)))
                          (%expand-test-lists-list (cdr test-lists-list)))))))      
-      `(let (,@let-list
-             (failed-test-func-names))
+      `(let (,@let-list)
          ,@(append
             ;; definition of test functions
             (%expand-test-lists-list test-lists-list)
             ;; call test functions
-            `((defun ,lab-test-name ()         
-                (format t "====== ~A ======~%" ',lab-test-name)
-                ,@(reverse test-func-calls)
-                ;; report failed tests
-                (format t " * FAILED:~%~A~%" 
-                        (if failed-test-func-names
-                            (format nil "~{ *** ~A~%~}" failed-test-func-names)
-                            " * * NONE"))
-                ;; return nil if failed and t if succeed
-                (null failed-test-func-names))))))))
+            `((defun ,lab-test-name ()
+                (let ((failed-test-func-names))
+                  (format t "====== ~A ======~%" ',lab-test-name)
+                  ;; call functions of tests
+                  ,@(reverse test-func-calls)
+                  ;; report failed tests
+                  (format t " * FAILED:~%~A~%" 
+                          (if failed-test-func-names
+                              (format nil "~{   * ~A~%~}" failed-test-func-names)
+                              "   * NONE"))
+                  ;; return nil if failed and t if succeed
+                  (null failed-test-func-names)))))))))

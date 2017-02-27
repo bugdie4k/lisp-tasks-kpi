@@ -5,7 +5,10 @@
   (:export #:aif
            #:awhen
            #:acond
-           #:it ;; ask somebody if this is a good idea at all
+           ;; TODO ask somebody if exporting 'it' is a good idea at all.
+           ;; also this is kinda cool how all the tests made with 'deftest' and 'deftestlab'
+           ;; are automatically broken if i don't export 'it'
+           #:it 
            #:traverse-slots
            #:pretty-print-object
            #:print-as-row))
