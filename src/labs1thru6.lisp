@@ -160,7 +160,7 @@
 
 ;; test all
 
-(defun test-all ()
+(defun test-3thru6 ()
   (test-lab3)
   (test-lab4)
   (test-lab5)

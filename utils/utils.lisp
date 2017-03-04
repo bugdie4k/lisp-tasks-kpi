@@ -11,7 +11,8 @@
            #:it 
            #:traverse-slots
            #:pretty-print-object
-           #:print-as-row))
+           #:print-as-row
+           #:skip-el))
 
 (in-package #:utils)
 
@@ -72,5 +73,11 @@
   (traverse-slots obj (lambda (name val)
                         (format stream "~{~VA~}│" `(,width ,(aif key-fn (funcall it name val) val)))))
   (format stream "~%"))
+
+(defun skip-el (el lst &key (test #'equalp))
+  (when lst
+    (if (funcall test el (car lst))
+        (skip-el el (cdr lst) :test test)
+        lst)))
 
 

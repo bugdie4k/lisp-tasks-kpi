@@ -32,7 +32,7 @@ and produces test functions with 'deftest' and then calls them."
                         (form-tested (second test-list))
                         (form-expected (third test-list))
                         (test-fn (fourth test-list))
-                        (test-full-name (intern (concatenate 'string (write-to-string lab-test-name) "-TASK-" (write-to-string test-name)))))
+                        (test-full-name (intern (concatenate 'string (write-to-string lab-test-name) "-PART-" (write-to-string test-name)))))
                    ;; while generating 'deftests' i also collect a form in which test function should be called to
                    ;; 'test-func-calls'.
                    ;; i know that 'setf' is not functional, but i didn't want to mess with multiple-value-bind
@@ -45,7 +45,7 @@ and produces test functions with 'deftest' and then calls them."
                                                test-func-calls)) 
                    (cons `(deftest ,test-full-name ,form-tested ,form-expected ,(if test-fn test-fn '(function equalp)))
                          (%expand-test-lists-list (cdr test-lists-list)))))))      
-      `(let (,@let-list)
+      `(let* (,@let-list)
          ,@(append
             ;; definition of test functions
             (%expand-test-lists-list test-lists-list)
