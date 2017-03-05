@@ -5,13 +5,24 @@
 (defclass table ()
   ((name :accessor table-name :initarg :name :initform nil)
    (row-type :accessor table-row-type :initarg :row-type :initform (error "You must supply the type of a row for 'table object"))
-   (rows :accessor table-rows :initform nil)
-   ))
+   (rows :accessor table-rows :initarg :rows :initform nil)
+   (max-widths :accessor table-max-widths :initarg :max-widths :initform nil)))
 
 (defmethod add-row-obj ((tbl table) obj)
   (if (typep obj (table-row-type tbl))
-      (push obj (table-rows tbl))
-      (error "~A is not of desired type ~A" obj (table-row-type tbl))))
+      (progn (push obj (table-rows tbl))
+             (setf (table-max-widths tbl)
+                   (if (table-max-widths tbl)
+                       (map 'list
+                            (lambda (width slot)
+                              (let ((slot-length (length (format nil "~A" (slot-value obj (sb-mop:slot-definition-name slot))))))
+                                (if (< width slot-length)
+                                    slot-length
+                                    width)))
+                            (table-max-widths tbl) (sb-mop:class-slots (class-of obj)))
+                       (mapcar (lambda (slot) (length (format nil "~A" (slot-value obj (sb-mop:slot-definition-name slot)))))
+                               (sb-mop:class-slots (class-of obj))))))
+      (error "~A is not of desired type. Desired type is ~A" obj (table-row-type tbl))))
 
 (defmethod add-row ((tbl table) &rest args-for-making-row-instance)
   (add-row-obj tbl (apply #'make-instance (table-row-type tbl) args-for-making-row-instance)))
@@ -42,7 +53,13 @@ If value is already a string it is not converted to a string."
            (table-rows tbl)))
 
 (defmethod make-same-table ((tbl table))
-  (make-instance 'table :name (table-name tbl) :row-type (table-row-type tbl)))
+  (make-instance 'table :name (table-name tbl)
+                        :row-type (table-row-type tbl)
+                        :max-widths (mapcar (lambda (slt)
+                                              (length (symbol-name (sb-mop:slot-definition-name slt))))
+                                            (sb-mop:class-slots (class-of
+                                                                 (make-instance (table-row-type tbl)) ;; SEVERE KLUDGE
+                                                                 )))))
 
 ;; this method is literally just me being tired of this "project"
 (defmethod filter-table ((tbl table) find-descriptors &key (wildcard #\*))
@@ -62,17 +79,24 @@ If value is already a string it is not converted to a string."
 (defmethod print-table ((tbl table) stream &key width)
   (let* ((rows (table-rows tbl))
          (row1 (car rows))
-         (width width)             ; TODO determine max width         
-         (col-count (list-length (sb-mop:class-slots (class-of row1))))
-         (horizontal-line (make-string width :initial-element #\BOX_DRAWINGS_LIGHT_HORIZONTAL))
-         (list-of-horizontal-lines (make-list col-count :initial-element horizontal-line))
+         (list-of-horizontal-lines
+           (if width
+               (make-list (list-length (sb-mop:class-slots (class-of row1)))
+                          :initial-element (make-string width :initial-element #\BOX_DRAWINGS_LIGHT_HORIZONTAL))
+               (mapcar (lambda (width)
+                         (make-string width :initial-element #\BOX_DRAWINGS_LIGHT_HORIZONTAL))
+                       (table-max-widths tbl))))
          (line-upper (format nil "┌~{~A~^┬~}┐~%" list-of-horizontal-lines))
          (line-middle (format nil "├~{~A~^┼~}┤~%" list-of-horizontal-lines))
          (line-lower (format nil "└~{~A~^┴~}┘~%" list-of-horizontal-lines)))
     (format stream "~A" line-upper)
-    (print-as-row (car rows) width stream :key-fn (lambda (name value) (declare (ignore value)) name)) ; print hat
+    (print-as-row (car rows) (aif width it (table-max-widths tbl)) stream :key-fn (lambda (name value) (declare (ignore value)) name)) ; print hat
     (format stream "~A" line-middle)
-    (map nil (lambda (row) (print-as-row row width stream)) rows)
+    (map nil
+         (if width
+             (lambda (row) (print-as-row row width stream))
+             (lambda (row) (print-as-row row (table-max-widths tbl) stream)))
+         rows)
     (format stream "~A" line-lower)))
  
 (defmacro create-table (name &rest columns-list)
@@ -87,7 +111,7 @@ If value is already a string it is not converted to a string."
                                             :initarg ,(intern column-name-string "KEYWORD") 
                                             :initform nil)))
            columns-list))
-       (make-instance 'table :name ,table-name :row-type ',row-class-name-symbol)))) 
+       (make-instance 'table :name ,table-name :row-type ',row-class-name-symbol :max-widths ',(mapcar (lambda (col) (length (symbol-name col))) columns-list)))))
 
 ;;;; test
 
@@ -125,6 +149,8 @@ If value is already a string it is not converted to a string."
     (add-row tbl :col1 11 :col2 12 :col3 "13")
     (add-row tbl :col1 21 :col2 22 :col3 "23")
     (add-row tbl :col1 31 :col2 32 :col3 "33")
+    (add-row tbl :col1 31245 :col2 "ffff")
+    (print-table tbl t)
     ;;;
     (pretty-print-object (find-row-by-column tbl :col2 22) t)
     (format t "----~%")
@@ -134,4 +160,4 @@ If value is already a string it is not converted to a string."
     (format t "----~%")
     (pretty-print-object (find-row/string-with-wildcard tbl '((:col1 "1*1") (:col2 "*12*") (:col3 "1*"))) t)
     (format t "----------~%")
-    (print-table (filter-table tbl '((:col1 "3*") (:col2 "*2"))) t :width 25)))
+    (print-table (filter-table tbl '((:col1 "3*") (:col2 "*2"))) t)))

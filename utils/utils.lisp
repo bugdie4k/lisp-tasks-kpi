@@ -82,13 +82,19 @@ If slot value is already a string it is not converted."))
 (defmethod pretty-print-object (obj stream)
   (traverse-slots obj (lambda (name val) (format stream "~S: ~S~%" name val))))
 
-(defgeneric print-as-row (obj width stream &key key-fn)
+(defgeneric print-as-row (obj width-or-widths-list stream &key key-fn)
   (:documentation "Print object slots as a row in a table. Prints '|' char and then prints all slots with format 'SLOT_VALUE |'"))
 
-(defmethod print-as-row (obj width stream &key key-fn)
-  (format stream "│")
-  (traverse-slots obj (lambda (name val)
-                        (format stream "~{~VA~}│" `(,width ,(aif key-fn (funcall it name val) val)))))
+(defmethod print-as-row (obj width-or-widths-list stream &key key-fn)
+  "width is either number or list of widths for each column (slot)"
+  (format stream "│")  
+  (traverse-slots obj (if (numberp width-or-widths-list)
+                          (lambda (name val)
+                            (format stream "~{~VA~}│" `(,width-or-widths-list ,(aif key-fn (funcall it name val) val))))
+                          (let ((i 0))
+                            (lambda (name val)
+                              (format stream "~{~VA~}│" `(,(nth i width-or-widths-list) ,(aif key-fn (funcall it name val) val)))
+                              (incf i)))))
   (format stream "~%"))
 
 ;; others 
