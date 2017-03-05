@@ -5,5 +5,6 @@
   (:export #:test-lab3
            #:test-lab4
            #:test-lab5
-           #:test-lab6//
-           #:test-3thru6))
+           #:test-lab6
+           #:test-3thru6
+           #:test-lab7))

@@ -5,7 +5,8 @@
 (defclass table ()
   ((name :accessor table-name :initarg :name :initform nil)
    (row-type :accessor table-row-type :initarg :row-type :initform (error "You must supply the type of a row for 'table object"))
-   (rows :accessor table-rows :initarg :rows :initform nil)))
+   (rows :accessor table-rows :initform nil)
+   ))
 
 (defmethod add-row-obj ((tbl table) obj)
   (if (typep obj (table-row-type tbl))
@@ -15,16 +16,53 @@
 (defmethod add-row ((tbl table) &rest args-for-making-row-instance)
   (add-row-obj tbl (apply #'make-instance (table-row-type tbl) args-for-making-row-instance)))
 
-(defmethod find-row ((tbl table) col-name value &key (test #'equalp))
-  (find-if (lambda (row-obj) (funcall test value (slot-value row-obj col-name))) (table-rows tbl)))
+(defmethod find-row-by-column ((tbl table) col-name value &key (test #'equalp))
+  (find-if (lambda (row-obj) (has-slot? row-obj col-name value test)) (table-rows tbl)))
+
+(defmethod find-row ((tbl table) find-descriptors)
+  "'find-descriptors' must be formatted as follows: ((column-name value-in-this-column-to-find test-function-for-this-column) ... ).
+If test function is left out or is 'nil', 'equalp' is used."
+  (find-if (lambda (row-obj)
+             (dolist (fd find-descriptors t)
+               (unless (has-slot? row-obj (first fd) (second fd) (aif (third fd) it #'equalp)) (return nil))))
+           (table-rows tbl)))
+
+(defmethod find-row-by-column/string-with-wildcard ((tbl table) col-name string-value &key (wildcard #\*))
+  "The 'string-value' is going to be compared with 'write-to-string'ed values of a specified (with 'col-name') column.
+If value is already a string it is not converted to a string."
+  (find-if (lambda (row-obj) (has-slot?/with-wildcard-string row-obj col-name string-value wildcard)) (table-rows tbl)))
+
+(defmethod find-row/string-with-wildcard ((tbl table) find-descriptors &key (wildcard #\*))
+  "'find-descriptors' must be formatted as follows: ((column-name string-value-in-this-column-to-find) ... ).
+The 'string-value-in-this-column-to-find' is going to be compared with 'write-to-string'ed values of a specified (with 'column-name') column.
+If value is already a string it is not converted to a string."  
+  (find-if (lambda (row-obj)
+             (dolist (fd find-descriptors t)
+               (unless (has-slot?/with-wildcard-string row-obj (first fd) (second fd) wildcard) (return nil))))
+           (table-rows tbl)))
+
+(defmethod make-same-table ((tbl table))
+  (make-instance 'table :name (table-name tbl) :row-type (table-row-type tbl)))
+
+;; this method is literally just me being tired of this "project"
+(defmethod filter-table ((tbl table) find-descriptors &key (wildcard #\*))
+  "'find-descriptors' must be formatted as follows: ((column-name string-value-in-this-column-to-find) ... )."
+  (let ((res-table (make-same-table tbl)))
+    (map nil (lambda (row-obj)
+               (when (dolist (fd find-descriptors t)
+                       (unless (has-slot?/with-wildcard-string row-obj (first fd) (second fd) wildcard) (return nil)))
+                 (add-row-obj res-table row-obj)))
+         (table-rows tbl))
+    res-table))
 
 (defmethod delete-row ((tbl table) col-name value &key (test #'equalp) count)
-  (setf (table-rows tbl) (remove-if (lambda (row-obj) (funcall test value (slot-value row-obj (intern (symbol-name col-name))))) (table-rows tbl) :count count)))
+  (let ((col-sym-name (intern (symbol-name col-name))))
+    (setf (table-rows tbl) (remove-if (lambda (row-obj) (funcall test value (slot-value row-obj col-sym-name))) (table-rows tbl) :count count))))
 
-(defmethod print-table ((tbl table) width stream)
+(defmethod print-table ((tbl table) stream &key width)
   (let* ((rows (table-rows tbl))
          (row1 (car rows))
-         (width width)             ; TODO determine max width
+         (width width)             ; TODO determine max width         
          (col-count (list-length (sb-mop:class-slots (class-of row1))))
          (horizontal-line (make-string width :initial-element #\BOX_DRAWINGS_LIGHT_HORIZONTAL))
          (list-of-horizontal-lines (make-list col-count :initial-element horizontal-line))
@@ -36,42 +74,7 @@
     (format stream "~A" line-middle)
     (map nil (lambda (row) (print-as-row row width stream)) rows)
     (format stream "~A" line-lower)))
-
-(defun string-equal-with-wildcards (&key string-with-wildcards string (wildcard #\*))
-  (labels ((%skip-wildcard (str-lst)
-             (skip-el wildcard str-lst :test #'char=))
-           (%compare (swl sl)
-             (let ((swl-1st (first swl)))
-               (cond ((and swl sl)
-                      (if (char= swl-1st wildcard)
-                          (let* ((swl-rest (%skip-wildcard (rest swl)))
-                                 (swl-2nd (first swl-rest)))                            
-                            (if swl-2nd
-                                (do ((sl-rest sl (rest sl-rest)))
-                                    ((null sl-rest))
-                                  (when (char= (first sl-rest) swl-2nd)
-                                    (return (%compare (rest swl-rest) (rest sl-rest)))))
-                                t))
-                          (when (char= swl-1st (first sl))
-                            (%compare (rest swl) (rest sl)))))
-                     ((and swl (null sl))
-                      (when (and (char= swl-1st wildcard)
-                                 (not (first (%skip-wildcard (rest swl)))))
-                        t))
-                     ((and (null swl) sl) nil)
-                     ((and (null swl) (null sl)) t)))))
-    (if (and string-with-wildcards string)
-        (let ((swl (coerce string-with-wildcards 'list))
-              (sl (coerce string 'list)))
-          (%compare swl sl))
-        (error "STRING-EQUAL-WITH-WILDCARDS NEEDS ARGUMENTS"))))
  
-(defmethod find-row-by-string ((tbl table) col-name string-value)
-  (find-if (lambda (string-name)
-               (string-equal-with-wildcards :string-with-wildcards string-value :string string-name :wildcard #\*))
-             (table-rows tbl)
-             :key (lambda (row-obj) (write-to-string (slot-value row-obj col-name)))))
-
 (defmacro create-table (name &rest columns-list)
   (let* ((table-name (concatenate 'string (write-to-string name)))
          (row-class-name-string (concatenate 'string "ROW-OF-" table-name))
@@ -96,33 +99,39 @@
                       (add-row my-table-raw :name "12 Angry Men" :director "Sidney Lumet" :year 1957 :rating 8.9)
                       (add-row my-table-raw :name "Schindler's List" :director "Steven Spielberg" :year 1993 :rating 8.9)
                       my-table-raw)))
-  (1 (with-output-to-string (stream)
-       (print-table my-table 24 stream))
-     "┌────────────────────────┬────────────────────────┬────────────────────────┬────────────────────────┐
-│NAME                    │DIRECTOR                │YEAR                    │RATING                  │
-├────────────────────────┼────────────────────────┼────────────────────────┼────────────────────────┤
-│Schindler's List        │Steven Spielberg        │1993                    │8.9                     │
-│12 Angry Men            │Sidney Lumet            │1957                    │8.9                     │
-│The Dark Knight         │Christopher Nolan       │2008                    │9.0                     │
-│The Godfather           │Francis Ford Coppola    │1972                    │9.2                     │
-│The Shawshenk Redemption│Frank Darabont          │1994                    │9.3                     │
-└────────────────────────┴────────────────────────┴────────────────────────┴────────────────────────┘
-")
-  (2 (with-output-to-string (stream)
-       (add-row my-table :name "Pulp Fiction" :director "Quentin Tarantino" :year 1994 :rating 8.9)
-       (print-table my-table 24 stream))
-     "┌────────────────────────┬────────────────────────┬────────────────────────┬────────────────────────┐
-│NAME                    │DIRECTOR                │YEAR                    │RATING                  │
-├────────────────────────┼────────────────────────┼────────────────────────┼────────────────────────┤
-│Pulp Fiction            │Quentin Tarantino       │1994                    │8.9                     │
-│Schindler's List        │Steven Spielberg        │1993                    │8.9                     │
-│12 Angry Men            │Sidney Lumet            │1957                    │8.9                     │
-│The Dark Knight         │Christopher Nolan       │2008                    │9.0                     │
-│The Godfather           │Francis Ford Coppola    │1972                    │9.2                     │
-│The Shawshenk Redemption│Frank Darabont          │1994                    │9.3                     │
-└────────────────────────┴────────────────────────┴────────────────────────┴────────────────────────┘
-")
-  (3 (with-output-to-string (stream)
-       (delete-row my-table :year 1994 :test #'=)
-       (print-table my-table 24 stream))
-     "2"))
+  (printing (with-output-to-string (stream)
+              (print-table my-table stream :width 25))
+            "")
+  (adding (with-output-to-string (stream)
+            (add-row my-table :name "Pulp Fiction" :director "Quentin Tarantino" :year 1994 :rating 8.9)
+            (add-row my-table :name "In the Name of the Father" :director "Jim Sheridan" :year 1993 :rating 8.1)
+            (print-table my-table stream :width 25))
+          "")
+  (deleting1 (with-output-to-string (stream)
+               (delete-row my-table :year 1994 :test #'=)
+               (print-table my-table stream :width 25))
+             "")
+  (deleting2 (with-output-to-string (stream)
+               (delete-row my-table :year 1993 :test #'= :count 1)
+               (print-table my-table stream :width 25))
+             "")
+  (deleting3 (with-output-to-string (stream)
+               (delete-row my-table :name "Pulp Fiction" :test #'string=)
+               (print-table my-table stream :width 25))
+             ""))
+
+(defun quicktest ()
+  (let ((tbl (create-table tbl col1 col2 col3)))
+    (add-row tbl :col1 11 :col2 12 :col3 "13")
+    (add-row tbl :col1 21 :col2 22 :col3 "23")
+    (add-row tbl :col1 31 :col2 32 :col3 "33")
+    ;;;
+    (pretty-print-object (find-row-by-column tbl :col2 22) t)
+    (format t "----~%")
+    (pretty-print-object (find-row-by-column/string-with-wildcard tbl :col3 "***3*") t)
+    (format t "----------~%")
+    (pretty-print-object (find-row tbl '((:col1 11 =) (:col2 12) (:col3 "13" string=))) t)
+    (format t "----~%")
+    (pretty-print-object (find-row/string-with-wildcard tbl '((:col1 "1*1") (:col2 "*12*") (:col3 "1*"))) t)
+    (format t "----------~%")
+    (print-table (filter-table tbl '((:col1 "3*") (:col2 "*2"))) t :width 25)))
