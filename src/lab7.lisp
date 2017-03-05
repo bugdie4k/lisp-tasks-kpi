@@ -116,48 +116,119 @@ If value is already a string it is not converted to a string."
 ;;;; test
 
 (deftestlab test-lab7
-    ((my-table-raw (create-table movies-table name director year rating))
-     (my-table (progn (add-row my-table-raw :name "The Shawshenk Redemption" :director "Frank Darabont" :year 1994 :rating 9.3)
-                      (add-row my-table-raw :name "The Godfather" :director "Francis Ford Coppola" :year 1972 :rating 9.2)
-                      (add-row my-table-raw :name "The Dark Knight" :director "Christopher Nolan" :year 2008 :rating 9.0)
-                      (add-row my-table-raw :name "12 Angry Men" :director "Sidney Lumet" :year 1957 :rating 8.9)
-                      (add-row my-table-raw :name "Schindler's List" :director "Steven Spielberg" :year 1993 :rating 8.9)
-                      my-table-raw)))
-  (printing (with-output-to-string (stream)
-              (print-table my-table stream :width 25))
-            "")
-  (adding (with-output-to-string (stream)
-            (add-row my-table :name "Pulp Fiction" :director "Quentin Tarantino" :year 1994 :rating 8.9)
-            (add-row my-table :name "In the Name of the Father" :director "Jim Sheridan" :year 1993 :rating 8.1)
-            (print-table my-table stream :width 25))
-          "")
-  (deleting1 (with-output-to-string (stream)
-               (delete-row my-table :year 1994 :test #'=)
-               (print-table my-table stream :width 25))
-             "")
-  (deleting2 (with-output-to-string (stream)
-               (delete-row my-table :year 1993 :test #'= :count 1)
-               (print-table my-table stream :width 25))
-             "")
-  (deleting3 (with-output-to-string (stream)
-               (delete-row my-table :name "Pulp Fiction" :test #'string=)
-               (print-table my-table stream :width 25))
-             ""))
-
-(defun quicktest ()
-  (let ((tbl (create-table tbl col1 col2 col3)))
-    (add-row tbl :col1 11 :col2 12 :col3 "13")
-    (add-row tbl :col1 21 :col2 22 :col3 "23")
-    (add-row tbl :col1 31 :col2 32 :col3 "33")
-    (add-row tbl :col1 31245 :col2 "ffff")
-    (print-table tbl t)
-    ;;;
-    (pretty-print-object (find-row-by-column tbl :col2 22) t)
-    (format t "----~%")
-    (pretty-print-object (find-row-by-column/string-with-wildcard tbl :col3 "***3*") t)
-    (format t "----------~%")
-    (pretty-print-object (find-row tbl '((:col1 11 =) (:col2 12) (:col3 "13" string=))) t)
-    (format t "----~%")
-    (pretty-print-object (find-row/string-with-wildcard tbl '((:col1 "1*1") (:col2 "*12*") (:col3 "1*"))) t)
-    (format t "----------~%")
-    (print-table (filter-table tbl '((:col1 "3*") (:col2 "*2"))) t)))
+    ((my-table (let ((my-table-raw (create-table movies-table name director year rating)))
+                 (add-row my-table-raw :name "The Shawshenk Redemption" :director "Frank Darabont" :year 1994 :rating 9.3)
+                 (add-row my-table-raw :name "The Godfather" :director "Francis Ford Coppola" :year 1972 :rating 9.2)
+                 (add-row my-table-raw :name "The Dark Knight" :director "Christopher Nolan" :year 2008 :rating 9.0)
+                 (add-row my-table-raw :name "12 Angry Men" :director "Sidney Lumet" :year 1957 :rating 8.9)
+                 (add-row my-table-raw :name "Schindler's List" :director "Steven Spielberg" :year 1993 :rating 8.9)
+                 (add-row my-table-raw :name "Logan" :director "James Mangold" :year 2017 :rating 8.8)
+                 (add-row my-table-raw :name "Fight Club" :director "David Fincher" :year 1999 :rating 8.8)
+                 (add-row my-table-raw :name "Pulp Fiction" :director "Quentin Tarantino" :year 1994 :rating 8.9)
+                 (add-row my-table-raw :name "The Matrix" :director "The Wachowski Brothers" :year 1999 :rating 8.7)
+                 my-table-raw)))
+  (printing (let ((my-table (copy-instance my-table)))
+              (with-output-to-string (stream)
+                (print-table my-table stream)))
+            "┌────────────────────────┬──────────────────────┬────┬──────┐
+│NAME                    │DIRECTOR              │YEAR│RATING│
+├────────────────────────┼──────────────────────┼────┼──────┤
+│The Matrix              │The Wachowski Brothers│1999│8.7   │
+│Pulp Fiction            │Quentin Tarantino     │1994│8.9   │
+│Fight Club              │David Fincher         │1999│8.8   │
+│Logan                   │James Mangold         │2017│8.8   │
+│Schindler's List        │Steven Spielberg      │1993│8.9   │
+│12 Angry Men            │Sidney Lumet          │1957│8.9   │
+│The Dark Knight         │Christopher Nolan     │2008│9.0   │
+│The Godfather           │Francis Ford Coppola  │1972│9.2   │
+│The Shawshenk Redemption│Frank Darabont        │1994│9.3   │
+└────────────────────────┴──────────────────────┴────┴──────┘
+")
+  (adding (let ((my-table (copy-instance my-table)))
+            (with-output-to-string (stream)
+              (add-row my-table :name "In the Name of the Father" :director "Jim Sheridan" :year 1993 :rating 8.1)
+              (print-table my-table stream)))
+          "┌─────────────────────────┬──────────────────────┬────┬──────┐
+│NAME                     │DIRECTOR              │YEAR│RATING│
+├─────────────────────────┼──────────────────────┼────┼──────┤
+│In the Name of the Father│Jim Sheridan          │1993│8.1   │
+│The Matrix               │The Wachowski Brothers│1999│8.7   │
+│Pulp Fiction             │Quentin Tarantino     │1994│8.9   │
+│Fight Club               │David Fincher         │1999│8.8   │
+│Logan                    │James Mangold         │2017│8.8   │
+│Schindler's List         │Steven Spielberg      │1993│8.9   │
+│12 Angry Men             │Sidney Lumet          │1957│8.9   │
+│The Dark Knight          │Christopher Nolan     │2008│9.0   │
+│The Godfather            │Francis Ford Coppola  │1972│9.2   │
+│The Shawshenk Redemption │Frank Darabont        │1994│9.3   │
+└─────────────────────────┴──────────────────────┴────┴──────┘
+")
+  (deleting1 (let ((my-table (copy-instance my-table)))
+               (with-output-to-string (stream)
+                 (delete-row my-table :year 1994 :test #'=)
+                 (print-table my-table stream)))
+             "┌────────────────────────┬──────────────────────┬────┬──────┐
+│NAME                    │DIRECTOR              │YEAR│RATING│
+├────────────────────────┼──────────────────────┼────┼──────┤
+│The Matrix              │The Wachowski Brothers│1999│8.7   │
+│Fight Club              │David Fincher         │1999│8.8   │
+│Logan                   │James Mangold         │2017│8.8   │
+│Schindler's List        │Steven Spielberg      │1993│8.9   │
+│12 Angry Men            │Sidney Lumet          │1957│8.9   │
+│The Dark Knight         │Christopher Nolan     │2008│9.0   │
+│The Godfather           │Francis Ford Coppola  │1972│9.2   │
+└────────────────────────┴──────────────────────┴────┴──────┘
+")
+  (deleting2 (let ((my-table (copy-instance my-table)))
+               (with-output-to-string (stream)
+                 (delete-row my-table :year 1999 :test #'= :count 1)
+                 (print-table my-table stream)))
+             "┌────────────────────────┬──────────────────────┬────┬──────┐
+│NAME                    │DIRECTOR              │YEAR│RATING│
+├────────────────────────┼──────────────────────┼────┼──────┤
+│The Matrix              │The Wachowski Brothers│1999│8.7   │
+│Pulp Fiction            │Quentin Tarantino     │1994│8.9   │
+│Fight Club              │David Fincher         │1999│8.8   │
+│Logan                   │James Mangold         │2017│8.8   │
+│12 Angry Men            │Sidney Lumet          │1957│8.9   │
+│The Dark Knight         │Christopher Nolan     │2008│9.0   │
+│The Godfather           │Francis Ford Coppola  │1972│9.2   │
+│The Shawshenk Redemption│Frank Darabont        │1994│9.3   │
+└────────────────────────┴──────────────────────┴────┴──────┘
+")
+  (deleting3 (let ((my-table (copy-instance my-table)))
+               (with-output-to-string (stream)
+                 (delete-row my-table :name "Pulp Fiction" :test #'string=)
+                 (print-table my-table stream)))
+             "┌────────────────────────┬──────────────────────┬────┬──────┐
+│NAME                    │DIRECTOR              │YEAR│RATING│
+├────────────────────────┼──────────────────────┼────┼──────┤
+│The Matrix              │The Wachowski Brothers│1999│8.7   │
+│Fight Club              │David Fincher         │1999│8.8   │
+│Logan                   │James Mangold         │2017│8.8   │
+│Schindler's List        │Steven Spielberg      │1993│8.9   │
+│12 Angry Men            │Sidney Lumet          │1957│8.9   │
+│The Dark Knight         │Christopher Nolan     │2008│9.0   │
+│The Godfather           │Francis Ford Coppola  │1972│9.2   │
+│The Shawshenk Redemption│Frank Darabont        │1994│9.3   │
+└────────────────────────┴──────────────────────┴────┴──────┘
+")
+  (filtering (let ((my-table (copy-instance my-table)))
+               (with-output-to-string (stream)
+                 (print-table (filter-table my-table '((:name "The*") (:year "*1*9*") (:rating "*"))) stream)))
+             "┌────────────────────────┬──────────────────────┬────┬──────┐
+│NAME                    │DIRECTOR              │YEAR│RATING│
+├────────────────────────┼──────────────────────┼────┼──────┤
+│The Shawshenk Redemption│Frank Darabont        │1994│9.3   │
+│The Godfather           │Francis Ford Coppola  │1972│9.2   │
+│The Matrix              │The Wachowski Brothers│1999│8.7   │
+└────────────────────────┴──────────────────────┴────┴──────┘
+")
+  (find1 (let ((my-table (copy-instance my-table)))
+           (with-output-to-string (stream)
+             (pretty-print-object (find-row/string-with-wildcard my-table '((:director "*ncis*Coppola"))) stream)))
+         "NAME: \"The Godfather\"
+DIRECTOR: \"Francis Ford Coppola\"
+YEAR: 1972
+RATING: 9.2
+"))

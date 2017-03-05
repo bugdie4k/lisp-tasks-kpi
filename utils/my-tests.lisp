@@ -24,8 +24,14 @@ If 'test-gn' doesn't return nil - returnes that value."
   "Takes let-list like ((a 1) (b 2)) and then 
 lists like (test-task1 (cons 1 (cons 'a (cons 2 (cons 'b nil)))) '(1 a 2 b) #'test-func)
 and produces test functions with 'deftest' and then calls them."
-  (let ((test-func-calls))
-    (labels ((%expand-test-lists-list (test-lists-list)
+  (let ((test-func-calls)
+        (global-let-list (mapcar (lambda (let-form) `(,(gensym) ,(second let-form))) let-list)))
+    (labels ((%with-expanding-local-let-list (form-tested)
+               `(let ,(map 'list (lambda (orig-let-form gen-global-let-form)
+                                   `(,(first orig-let-form) ,(first gen-global-let-form)))
+                       let-list global-let-list)
+                  ,form-tested))
+             (%expand-test-lists-list (test-lists-list)
                (when test-lists-list
                  (let* ((test-list (first test-lists-list))
                         (test-name (first test-list))
@@ -38,14 +44,13 @@ and produces test functions with 'deftest' and then calls them."
                    ;; i know that 'setf' is not functional, but i didn't want to mess with multiple-value-bind
                    (setf test-func-calls (cons `(format t " ~A ~A~%"
                                                         (handler-case (,test-full-name)
-                                                          (error (se) (declare (ignore se)) (setf failed-test-func-names
-                                                                                                  (cons ',test-full-name failed-test-func-names)) "-")
+                                                          (error (se) (declare (ignore se)) (push ',test-full-name failed-test-func-names) "-")
                                                           (:no-error (ret-val) (declare (ignore ret-val)) "+"))
                                                         ',test-full-name)
                                                test-func-calls)) 
-                   (cons `(deftest ,test-full-name ,form-tested ,form-expected ,(if test-fn test-fn '(function equalp)))
+                   (cons `(deftest ,test-full-name ,(%with-expanding-local-let-list form-tested) ,form-expected ,(if test-fn test-fn '(function equalp)))
                          (%expand-test-lists-list (cdr test-lists-list)))))))      
-      `(let* (,@let-list)
+      `(let* ,global-let-list
          ,@(append
             ;; definition of test functions
             (%expand-test-lists-list test-lists-list)
