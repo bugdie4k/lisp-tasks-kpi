@@ -72,7 +72,7 @@ If value is already a string it is not converted to a string."
          (table-rows tbl))
     res-table))
 
-(defmethod delete-row ((tbl table) col-name value &key (test #'equalp) count)
+(defmethod delete-row-by-column ((tbl table) col-name value &key (test #'equalp) count)
   (let ((col-sym-name (intern (symbol-name col-name))))
     (setf (table-rows tbl) (remove-if (lambda (row-obj) (funcall test value (slot-value row-obj col-sym-name))) (table-rows tbl) :count count))))
 
@@ -165,7 +165,7 @@ If value is already a string it is not converted to a string."
 ")
   (deleting1 (let ((my-table (copy-instance my-table)))
                (with-output-to-string (stream)
-                 (delete-row my-table :year 1994 :test #'=)
+                 (delete-row-by-column my-table :year 1994 :test #'=)
                  (print-table my-table stream)))
              "┌────────────────────────┬──────────────────────┬────┬──────┐
 │NAME                    │DIRECTOR              │YEAR│RATING│
@@ -181,15 +181,15 @@ If value is already a string it is not converted to a string."
 ")
   (deleting2 (let ((my-table (copy-instance my-table)))
                (with-output-to-string (stream)
-                 (delete-row my-table :year 1999 :test #'= :count 1)
+                 (delete-row-by-column my-table :year 1999 :test #'= :count 1)
                  (print-table my-table stream)))
              "┌────────────────────────┬──────────────────────┬────┬──────┐
 │NAME                    │DIRECTOR              │YEAR│RATING│
 ├────────────────────────┼──────────────────────┼────┼──────┤
-│The Matrix              │The Wachowski Brothers│1999│8.7   │
 │Pulp Fiction            │Quentin Tarantino     │1994│8.9   │
 │Fight Club              │David Fincher         │1999│8.8   │
 │Logan                   │James Mangold         │2017│8.8   │
+│Schindler's List        │Steven Spielberg      │1993│8.9   │
 │12 Angry Men            │Sidney Lumet          │1957│8.9   │
 │The Dark Knight         │Christopher Nolan     │2008│9.0   │
 │The Godfather           │Francis Ford Coppola  │1972│9.2   │
@@ -198,7 +198,7 @@ If value is already a string it is not converted to a string."
 ")
   (deleting3 (let ((my-table (copy-instance my-table)))
                (with-output-to-string (stream)
-                 (delete-row my-table :name "Pulp Fiction" :test #'string=)
+                 (delete-row-by-column my-table :name "Pulp Fiction" :test #'string=)
                  (print-table my-table stream)))
              "┌────────────────────────┬──────────────────────┬────┬──────┐
 │NAME                    │DIRECTOR              │YEAR│RATING│

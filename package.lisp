@@ -6,5 +6,16 @@
            #:test-lab4
            #:test-lab5
            #:test-lab6
-           #:test-3thru6
-           #:test-lab7))
+           #:test-lab7
+           #:test-lab8
+           #:test-all))
+
+(in-package :labs)
+
+(defun test-all ()
+  (test-lab3)
+  (test-lab4)
+  (test-lab5)
+  (test-lab6)
+  (test-lab7)
+  (test-lab8))

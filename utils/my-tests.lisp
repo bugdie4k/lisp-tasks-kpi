@@ -7,14 +7,15 @@
 
 (in-package #:my-tests)
 
-(defmacro deftest (test-name form-tested form-expected test-fn)
+(defmacro deftest (test-name let-list form-tested form-expected test-fn)
   "Defines a function with name 'test-name' which s set to use
 'test-fn' to compare evaluation results from 'form-tested' and 'form-expected'.
-If 'test-gn' returnes nil - signals simple condition.
-If 'test-gn' doesn't return nil - returnes that value."
+If 'test-fn' returnes nil - signals simple condition.
+If 'test-fn' doesn't return nil - returnes that value."
   `(defun ,test-name ()
-     (let ((result ,form-tested)
-           (expected ,form-expected))
+     (let* (,@let-list
+            (result ,form-tested)
+            (expected ,form-expected))
        (aif (funcall ,test-fn result expected)
             it 
             (error "error in test ~A:~%expected:~%~A~%result:~%~A~%"
@@ -24,14 +25,12 @@ If 'test-gn' doesn't return nil - returnes that value."
   "Takes let-list like ((a 1) (b 2)) and then 
 lists like (test-task1 (cons 1 (cons 'a (cons 2 (cons 'b nil)))) '(1 a 2 b) #'test-func)
 and produces test functions with 'deftest' and then calls them."
-  (let ((test-func-calls)
-        (global-let-list (mapcar (lambda (let-form) `(,(gensym) ,(second let-form))) let-list)))
-    (labels ((%with-expanding-local-let-list (form-tested)
-               `(let ,(map 'list (lambda (orig-let-form gen-global-let-form)
-                                   `(,(first orig-let-form) ,(first gen-global-let-form)))
-                       let-list global-let-list)
-                  ,form-tested))
-             (%expand-test-lists-list (test-lists-list)
+  (let* ((test-func-calls)
+         (global-let-list (mapcar (lambda (let-form) `(,(gensym) ,(second let-form))) let-list))
+         (local-let-list (map 'list (lambda (orig-let-form gen-global-let-form)
+                                      `(,(first orig-let-form) ,(first gen-global-let-form)))
+                              let-list global-let-list)))
+    (labels ((%expand-test-lists-list (test-lists-list)
                (when test-lists-list
                  (let* ((test-list (first test-lists-list))
                         (test-name (first test-list))
@@ -48,7 +47,7 @@ and produces test functions with 'deftest' and then calls them."
                                                           (:no-error (ret-val) (declare (ignore ret-val)) "+"))
                                                         ',test-full-name)
                                                test-func-calls)) 
-                   (cons `(deftest ,test-full-name ,(%with-expanding-local-let-list form-tested) ,form-expected ,(if test-fn test-fn '(function equalp)))
+                   (cons `(deftest ,test-full-name ,local-let-list ,form-tested ,form-expected ,(if test-fn test-fn '(function equalp)))
                          (%expand-test-lists-list (cdr test-lists-list)))))))      
       `(let* ,global-let-list
          ,@(append
