@@ -56,8 +56,9 @@
   (labels ((%traverse-slots (slots-lst)
              (when slots-lst
                (let* ((slot (car slots-lst))
-                      (name (sb-mop:slot-definition-name slot))
-                      (value (slot-value obj name)))
+                      (def-name (sb-mop:slot-definition-name slot))
+                      (name (symbol-name def-name))
+                      (value (slot-value obj def-name)))
                  (funcall fn name value)
                  (%traverse-slots (cdr slots-lst))))))
     (%traverse-slots (sb-mop:class-slots (class-of obj)))))
@@ -74,14 +75,14 @@
 If slot value is already a string it is not converted."))
 
 (defmethod has-slot?/with-wildcard-string (obj name value wildcard)
-  (let ((val (slot-value obj (intern (symbol-name name)))))
+  (let ((val (slot-value obj (intern (symbol-name name) (symbol-package (type-of obj))))))
     (string-equal-with-wildcards :string-with-wildcards value :string (if (typep val 'string) val (write-to-string val)) :wildcard wildcard)))
 
 (defgeneric pretty-print-object (obj stream)
   (:documentation "Pretty printer for objects. Prints all slots with format 'SLOT-NAME: SLOT-VALUE'"))
 
 (defmethod pretty-print-object (obj stream)
-  (traverse-slots obj (lambda (name val) (format stream "~S: ~S~%" name val))))
+  (traverse-slots obj (lambda (name val) (format stream "~A: ~S~%" name val))))
 
 (defgeneric print-as-row (obj width-or-widths-list stream &key key-fn)
   (:documentation "Print object slots as a row in a table. Prints '|' char and then prints all slots with format 'SLOT_VALUE |'"))

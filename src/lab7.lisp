@@ -73,7 +73,7 @@ If value is already a string it is not converted to a string."
     res-table))
 
 (defmethod delete-row-by-column ((tbl table) col-name value &key (test #'equalp) count)
-  (let ((col-sym-name (intern (symbol-name col-name))))
+  (let ((col-sym-name (intern (symbol-name col-name) :labs)))
     (setf (table-rows tbl) (remove-if (lambda (row-obj) (funcall test value (slot-value row-obj col-sym-name))) (table-rows tbl) :count count))))
 
 (defmethod print-table ((tbl table) stream &key width)
@@ -102,12 +102,12 @@ If value is already a string it is not converted to a string."
 (defmacro create-table (name &rest columns-list)
   (let* ((table-name (concatenate 'string (write-to-string name)))
          (row-class-name-string (concatenate 'string "ROW-OF-" table-name))
-         (row-class-name-symbol (intern row-class-name-string)))
+         (row-class-name-symbol (intern row-class-name-string :labs)))
     `(progn
        (defclass ,row-class-name-symbol ()
          ,(mapcar (lambda (column-name-symbol)
                     (let ((column-name-string (write-to-string column-name-symbol)))
-                      `(,column-name-symbol :accessor ,(intern (concatenate 'string row-class-name-string "-" column-name-string))
+                      `(,column-name-symbol :accessor ,(intern (concatenate 'string row-class-name-string "-" column-name-string) :labs)
                                             :initarg ,(intern column-name-string "KEYWORD") 
                                             :initform nil)))
            columns-list))
