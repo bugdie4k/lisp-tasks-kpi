@@ -8,6 +8,7 @@
            #:test-lab6
            #:test-lab7
            #:test-lab8
+           #:test-lab9
            #:test-all))
 
 (in-package :labs)
@@ -18,4 +19,5 @@
   (test-lab5)
   (test-lab6)
   (test-lab7)
-  (test-lab8))
+  (test-lab8)
+  (test-lab9))
